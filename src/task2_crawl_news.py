@@ -21,25 +21,59 @@ from pathlib import Path
 DATA_DIR = Path(__file__).parent.parent / "data" / "landing" / "news"
 
 ARTICLE_URLS = [
-    # TODO: Thêm ít nhất 5 public URL.
+    "https://ctsv.uit.edu.vn/bai-viet/huong-dan-ve-qui-dinh-hoc-bong-khuyen-khich-hoc-tap-moi-tu-hk1-2026-2027",
+    "https://ctsv.uit.edu.vn/bai-viet/quy-dinh-lien-quan-den-hoc-bong-sinh-vien",
+    "https://ctsv.uit.edu.vn/bai-viet/danh-sach-du-kien-nhan-cac-loai-hoc-bong-tai-hk2-2025-2026",
+    "https://ctsv.uit.edu.vn/bai-viet/thong-bao-trien-khai-hoc-bong-uit-global-tu-hoc-ky-1-nam-hoc-2026-2027",
+    "https://ctsv.uit.edu.vn/bai-viet/hoc-phi-hoc-bong-mien-giam-hoc-phi-cac-che-do-chinh-sach-khac",
 ]
 
 
 async def crawl_article(url: str) -> dict:
-    # TODO: Implement crawling logic.
-    #
-    # from datetime import datetime
-    # from crawl4ai import AsyncWebCrawler
-    #
-    # async with AsyncWebCrawler() as crawler:
-    #     result = await crawler.arun(url=url)
-    #     return {
-    #         "url": url,
-    #         "title": result.metadata.get("title", "Unknown"),
-    #         "date_crawled": datetime.now().isoformat(),
-    #         "content_markdown": result.markdown,
-    #     }
-    raise NotImplementedError("Implement crawl_article")
+    """Crawl một bài viết từ URL và trích xuất metadata kèm markdown."""
+    from datetime import datetime
+    import requests
+    from bs4 import BeautifulSoup
+    import markdownify
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    resp = requests.get(url, headers=headers, timeout=20)
+    resp.raise_for_status()
+
+    soup = BeautifulSoup(resp.content, "html.parser")
+
+    # Trích xuất tiêu đề bài viết
+    h1 = soup.find("h1")
+    if h1 and h1.get_text(strip=True):
+        title = h1.get_text(strip=True)
+    elif soup.title and soup.title.get_text(strip=True):
+        title = soup.title.get_text(strip=True)
+    else:
+        title = "Thông báo sinh viên"
+
+    # Trích xuất nội dung chính
+    content_el = (
+        soup.find("div", class_="field-name-body")
+        or soup.find("div", class_="node__content")
+        or soup.find("article")
+        or soup.find("div", class_="content")
+        or soup.body
+    )
+
+    markdown_text = markdownify.markdownify(
+        str(content_el),
+        heading_style="ATX",
+        strip=["script", "style", "nav", "footer"],
+    ).strip()
+
+    return {
+        "url": url,
+        "title": title,
+        "date_crawled": datetime.now().isoformat(),
+        "content_markdown": markdown_text,
+    }
 
 
 async def crawl_all() -> None:
